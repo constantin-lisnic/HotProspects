@@ -16,11 +16,19 @@ struct ProspectView: View {
     }
 
     @Environment(\.modelContext) var modelContext
-    @Query(sort: \Prospect.name) var prospects: [Prospect]
+    @Query var prospects: [Prospect]
     @State private var isShowingScanner = false
     @State private var selectedProspects = Set<Prospect>()
 
+    @State private var sortOrder = [
+        SortDescriptor(\Prospect.name),
+        SortDescriptor(\Prospect.createdAt),
+    ]
+
     var filter: FilterType
+    var sortedProspects: [Prospect] {
+        prospects.sorted(using: sortOrder)
+    }
 
     var title: String {
         switch filter {
@@ -39,18 +47,36 @@ struct ProspectView: View {
             _prospects = Query(
                 filter: #Predicate {
                     $0.isContacted == showContactedOnly
-                }, sort: [SortDescriptor(\Prospect.name)])
+                })
         }
     }
 
     var body: some View {
         NavigationStack {
-            List(prospects, selection: $selectedProspects) { prospect in
-                VStack(alignment: .leading) {
-                    Text(prospect.name)
-                        .font(.headline)
-                    Text(prospect.email)
-                        .foregroundStyle(.secondary)
+            List(sortedProspects, selection: $selectedProspects) { prospect in
+                NavigationLink {
+                    EditView(
+                        prospect: prospect,
+                        selectedProspects: $selectedProspects)
+                } label: {
+                    HStack {
+                        VStack(alignment: .leading) {
+                            Text(prospect.name)
+                                .font(.headline)
+                            Text(prospect.email)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        if prospect.isContacted {
+                            Image(
+                                systemName:
+                                    "person.crop.circle.fill.badge.checkmark"
+                            )
+                            .foregroundStyle(.green)
+                        }
+                    }
                 }
                 .swipeActions {
                     Button("Delete", systemImage: "trash", role: .destructive) {
@@ -92,6 +118,24 @@ struct ProspectView: View {
                 ToolbarItem(placement: .topBarTrailing) {
                     Button("Scan", systemImage: "qrcode.viewfinder") {
                         isShowingScanner = true
+                    }
+                }
+
+                ToolbarItem(placement: .topBarLeading) {
+                    Menu("Sort", systemImage: "arrow.up.arrow.down") {
+                        Picker("Sort", selection: $sortOrder) {
+                            Text("Sort by Name")
+                                .tag([
+                                    SortDescriptor(\Prospect.name),
+                                    SortDescriptor(\Prospect.createdAt),
+                                ])
+
+                            Text("Sort by Date")
+                                .tag([
+                                    SortDescriptor(\Prospect.createdAt),
+                                    SortDescriptor(\Prospect.name),
+                                ])
+                        }
                     }
                 }
 
